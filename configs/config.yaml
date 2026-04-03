@@ -1,0 +1,42 @@
+# ==========================================
+# MatMoE-Agent Global Configuration
+# ==========================================
+
+system:
+  # 基础路径配置 (相对主目录)
+  cache_dir: "./cache/cif_cache"
+  log_dir: "./logs"
+
+model:
+  # 模型类型: 'local' (本地开源模型) 或 'cloud' (云端 API 模型)
+  type: "cloud"  
+  
+  # --- 本地模型配置 (当 type: "local" 时生效) ---
+  llm_path: "./model/merged_qwen_cpt_sft_CSimPO_V2.0"
+  max_new_tokens: 2048
+  repetition_penalty: 1.1
+
+  # --- 云端模型配置 (当 type: "cloud" 时生效) ---
+  # 以下以 DeepSeek 或 阿里云百炼(Qwen) 为例，兼容 OpenAI 格式
+  cloud_api:
+    base_url: "https://api.deepseek.com/v1"  # API 代理地址
+    model_name: "deepseek-chat"              # 模型名称 (如 qwen-plus, gpt-4o)
+    
+  # 通用生成参数
+  temperature: 0.01
+  
+rag:
+  # 知识检索配置
+  vector_db_path: "./data/vector_db"
+  embedding_model: "./model/bge-m3"
+  rerank_model: "./model/bge-reranker-v2-m3"
+  recall_k: 30
+  top_k: 8
+
+physics:
+  # 物理计算默认参数
+  chgnet_fmax: 0.05
+  chgnet_steps: 500
+  sq_temperature: 300      # S-Q极限计算默认温度 (K)
+
+

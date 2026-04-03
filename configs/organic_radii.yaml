@@ -1,0 +1,30 @@
+# ==============================================================================
+# 有机大阳离子有效半径数据库 (Effective Ionic Radii for Organic Cations)
+# ==============================================================================
+# 参考文献 (Reference):
+# 1. Kieslich, G., Sun, S., & Cheetham, A. K. (2014). Solid-state principles applied to organic-inorganic perovskites: new tricks for an old dog. Chemical Science, 5(12), 4712-4715.
+# 2. Travis, W., Glover, E. N., Bronstein, H., et al. (2016). On the application of the tolerance factor to inorganic and hybrid halide perovskites. Chemical Science, 7(3), 4548-4556.
+#
+# 适用配位数 (Coordination Number): 12 (用于 A 位)
+# ==============================================================================
+organics:
+  MA:
+    name: "Methylammonium"
+    formula: "CH3NH3"
+    radius_A: 2.17
+    citation: "Kieslich et al., 2014"
+  FA:
+    name: "Formamidinium"
+    formula: "CH(NH2)2"
+    radius_A: 2.53
+    citation: "Kieslich et al., 2014"
+  EA:
+    name: "Ethylammonium"
+    formula: "CH3CH2NH3"
+    radius_A: 2.74
+    citation: "Kieslich et al., 2014"
+  GA:
+    name: "Guanidinium"
+    formula: "C(NH2)3"
+    radius_A: 2.78
+    citation: "Kieslich et al., 2014"

@@ -1,0 +1,53 @@
+# configs/materials_cost_toxicity.yaml
+# ==============================================================================
+# 元素/前驱体 成本估算与毒性标记数据库
+# ==============================================================================
+# - 价格单位: USD / kg (近似的工业级或科研级大宗采购价)
+# - 毒性标记参考: 欧盟 RoHS 指令 (Restriction of Hazardous Substances)
+# ==============================================================================
+
+elements:
+  # ------ 常见安全/廉价元素 ------
+  Cu: { price_usd_per_kg: 8.5, is_toxic: false, rohs_restricted: false }
+  Zn: { price_usd_per_kg: 3.2, is_toxic: false, rohs_restricted: false }
+  Sn: { price_usd_per_kg: 25.0, is_toxic: false, rohs_restricted: false }
+  Si: { price_usd_per_kg: 2.0, is_toxic: false, rohs_restricted: false }
+  Fe: { price_usd_per_kg: 0.5, is_toxic: false, rohs_restricted: false }
+  Ti: { price_usd_per_kg: 10.0, is_toxic: false, rohs_restricted: false }
+  Al: { price_usd_per_kg: 2.5, is_toxic: false, rohs_restricted: false }
+  O:  { price_usd_per_kg: 0.1, is_toxic: false, rohs_restricted: false }
+  C:  { price_usd_per_kg: 0.5, is_toxic: false, rohs_restricted: false }
+  
+  # ------ 卤素 ------
+  I:  { price_usd_per_kg: 45.0, is_toxic: false, rohs_restricted: false }
+  Br: { price_usd_per_kg: 5.0, is_toxic: false, rohs_restricted: false }
+  Cl: { price_usd_per_kg: 0.2, is_toxic: false, rohs_restricted: false }
+
+  # ------ 碱金属/碱土金属 ------
+  Cs: { price_usd_per_kg: 600.0, is_toxic: false, rohs_restricted: false } # 铯很贵
+  Rb: { price_usd_per_kg: 1200.0, is_toxic: false, rohs_restricted: false }
+  K:  { price_usd_per_kg: 1.0, is_toxic: false, rohs_restricted: false }
+  
+  # ------ 贵金属 (成本极高) ------
+  Ag: { price_usd_per_kg: 750.0, is_toxic: false, rohs_restricted: false }
+  Au: { price_usd_per_kg: 65000.0, is_toxic: false, rohs_restricted: false }
+  Pt: { price_usd_per_kg: 30000.0, is_toxic: false, rohs_restricted: false }
+  Ir: { price_usd_per_kg: 150000.0, is_toxic: false, rohs_restricted: false }
+  Ru: { price_usd_per_kg: 15000.0, is_toxic: false, rohs_restricted: false }
+  
+  # ------ 稀散元素 (CIGS等常用) ------
+  In: { price_usd_per_kg: 350.0, is_toxic: false, rohs_restricted: false }
+  Ga: { price_usd_per_kg: 400.0, is_toxic: false, rohs_restricted: false }
+  Se: { price_usd_per_kg: 20.0, is_toxic: true, rohs_restricted: false }
+  Te: { price_usd_per_kg: 70.0, is_toxic: true, rohs_restricted: false }
+
+  # ------ 重金属与剧毒元素 (RoHS 严格限制) ------
+  Pb: { price_usd_per_kg: 2.2, is_toxic: true, rohs_restricted: true }  # 铅，极便宜但有毒
+  Cd: { price_usd_per_kg: 3.5, is_toxic: true, rohs_restricted: true }  # 镉 (CdTe电池的主力)
+  Hg: { price_usd_per_kg: 40.0, is_toxic: true, rohs_restricted: true } # 汞
+  As: { price_usd_per_kg: 1.5, is_toxic: true, rohs_restricted: false } # 砷 (GaAs的主力)
+
+# 复合前驱体近似 (主要指有机基团)
+compounds:
+  MA: { price_usd_per_kg: 15.0, is_toxic: false, rohs_restricted: false } # 甲胺盐近似
+  FA: { price_usd_per_kg: 40.0, is_toxic: false, rohs_restricted: false } # 甲脒盐近似

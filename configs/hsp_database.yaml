@@ -1,0 +1,28 @@
+# configs/hsp_database.yaml
+# ==============================================================================
+# 汉森溶解度参数数据库 (Hansen Solubility Parameters, HSP)
+# 单位: MPa^(1/2)
+# 参数说明: dD (色散力), dP (极性力), dH (氢键力)
+# ==============================================================================
+
+solvents:
+  # --- 常用主溶剂 (Good Solvents) ---
+  DMF:  { dD: 17.4, dP: 13.7, dH: 11.3, type: "host" }   # N,N-二甲基甲酰胺
+  DMSO: { dD: 18.4, dP: 16.4, dH: 10.2, type: "host" }   # 二甲亚砜 (溶解力极强)
+  GBL:  { dD: 19.0, dP: 16.6, dH: 7.4,  type: "host" }   # γ-丁内酯
+  NMP:  { dD: 18.0, dP: 12.3, dH: 7.2,  type: "host" }   # N-甲基吡咯烷酮
+  
+  # --- 常用反溶剂 (Antisolvents) ---
+  CB:   { dD: 19.0, dP: 4.3,  dH: 2.0,  type: "anti" }   # 氯苯 (经典反溶剂)
+  Toluene: { dD: 18.0, dP: 1.4, dH: 2.0, type: "anti" }  # 甲苯
+  DEE:  { dD: 14.5, dP: 2.9,  dH: 5.1,  type: "anti" }   # 乙醚
+  EA:   { dD: 15.8, dP: 5.3,  dH: 7.2,  type: "anti" }   # 乙酸乙酯
+  
+  # --- 冲洗/添加剂溶剂 ---
+  IPA:  { dD: 15.8, dP: 6.1,  dH: 16.4, type: "wash" }   # 异丙醇
+
+precursors:
+  # --- 常见钙钛矿前驱体 (经验拟合 HSP 值) ---
+  PbI2: { dD: 20.5, dP: 16.5, dH: 10.5 } # 碘化铅 (难溶，极度依赖配位)
+  MAI:  { dD: 17.5, dP: 15.0, dH: 14.0 } # 甲基碘化铵 (易溶)
+  FAI:  { dD: 18.0, dP: 16.0, dH: 15.5 } # 甲脒氢碘酸盐

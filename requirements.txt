@@ -1,0 +1,2 @@
+# requirements placeholder
+# 在此添加依赖，例如 transformers, torch, ase, pymatgen, chromadb
