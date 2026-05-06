@@ -39,4 +39,27 @@ physics:
   chgnet_steps: 500
   sq_temperature: 300      # S-Q极限计算默认温度 (K)
 
+vasp:
+  # VASP第一性原理计算配置
+  # ⚠️ 警告：VASP计算极其耗时且消耗大量计算资源
+  enabled: false           # 默认禁用，需要时手动开启
+  
+  # 默认远程服务器配置（可选）
+  default_server:
+    hostname: ""           # 服务器地址
+    username: ""           # 用户名
+    key_filename: ""       # SSH密钥路径（推荐）
+    password: ""           # 密码（不推荐，建议用密钥）
+    port: 22
+    vasp_command: "vasp_std"  # VASP执行命令
+    work_dir: "~/vasp_calculations"  # 远程工作目录
+  
+  # 默认计算参数
+  default_params:
+    xc: "PBE"
+    kpts: [4, 4, 4]
+    encut: 400
+    ismear: 0
+    sigma: 0.05
+
 

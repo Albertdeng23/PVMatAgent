@@ -41,6 +41,9 @@ from src.synthesis.lab_assistant import LabSynthesisExpert
 # 5. 材料发现与晶体生成专家
 from src.discovery.crystal_generator import CrystalGeneratorExpert
 
+# 6. 第一性原理计算专家 (VASP)
+from src.calculations.vasp_tools import VASPToolsExpert
+
 
 class MatMoEOrchestrator:
     """
@@ -69,6 +72,7 @@ class MatMoEOrchestrator:
         self.te_expert = TechnoEconomicExpert()
         self.lab_expert = LabSynthesisExpert()
         self.crystal_expert = CrystalGeneratorExpert()
+        self.vasp_expert = VASPToolsExpert()  # 新增：VASP第一性原理计算专家
         
         self.tools = self._register_tools()
         self.agent_executor = self._build_agent_executor()
@@ -182,12 +186,129 @@ class MatMoEOrchestrator:
             try: return str(self.lab_expert.recommend_solvent_system(precursor))
             except Exception as e: return f"出错: {str(e)}"
 
+        # ------------------- 第一性原理计算专家 (VASP) -------------------
+        @tool
+        def tool_vasp_connect(hostname: str, username: str, password: str = "", 
+                             key_filename: str = "", vasp_command: str = "vasp_std") -> str:
+            """
+            【第一性原理计算专家 (VASP) - 连接服务器】
+            用途：连接到远程VASP计算服务器（超算中心或课题组服务器）。
+            ⚠️ 警告：此工具仅用于连接服务器，不执行计算。正式计算请使用submit工具。
+            输入：hostname(服务器地址), username(用户名), password(密码) 或 key_filename(密钥路径)。
+            """
+            print(f"\n⚛️ [Agent Calls VASP Connect]: {hostname}")
+            try:
+                kwargs = {"hostname": hostname, "username": username, "vasp_command": vasp_command}
+                if password:
+                    kwargs["password"] = password
+                elif key_filename:
+                    kwargs["key_filename"] = key_filename
+                return str(self.vasp_expert.connect_server(**kwargs))
+            except Exception as e: return f"出错: {str(e)}"
+
+        @tool
+        def tool_vasp_prepare_and_submit(cif_path: str, calculation_type: str = "relax",
+                                        xc: str = "PBE", kpts: str = "(4,4,4)", 
+                                        encut: int = 400, blocking: bool = False) -> str:
+            """
+            【第一性原理计算专家 (VASP) - 提交计算】
+            用途：准备VASP输入文件并提交第一性原理计算任务。
+            
+            ⚠️⚠️⚠️ 极其重要警告：
+            1. VASP计算极其耗时（通常数小时到数天）且消耗大量计算资源！
+            2. 请仅在以下情况才使用此工具：
+               - 用户明确要求进行DFT计算
+               - 机器学习预测结果存疑需要验证
+               - 需要高精度能带结构数据
+            3. 优先使用CHGNet/MEGNet等快速工具进行初步筛选！
+            4. 提交前必须确保已连接服务器 (tool_vasp_connect)。
+            
+            输入：
+            - cif_path: CIF文件路径
+            - calculation_type: 计算类型 ('relax'-结构优化, 'static'-静态计算, 'band'-能带计算)
+            - xc: 交换关联泛函 (默认PBE)
+            - kpts: K点网格，字符串格式如"(4,4,4)"
+            - encut: 截断能 (默认400 eV)
+            - blocking: 是否阻塞等待完成 (默认False，推荐后台运行)
+            """
+            print(f"\n⚛️ [Agent Calls VASP Submit]: {os.path.basename(cif_path)} | {calculation_type}")
+            try:
+                # 解析kpts字符串
+                import ast
+                kpts_tuple = ast.literal_eval(kpts)
+                
+                # 准备输入文件
+                from src.calculations.vasp_tools import VASPConfig
+                config = VASPConfig(xc=xc, kpts=kpts_tuple, encut=encut)
+                prep_result = self.vasp_expert.prepare_vasp_inputs(cif_path, config, calculation_type)
+                
+                if "error" in prep_result:
+                    return str(prep_result)
+                
+                job_name = prep_result["job_name"]
+                
+                # 提交计算
+                submit_result = self.vasp_expert.submit_calculation(job_name, blocking=blocking)
+                
+                return {
+                    "preparation": prep_result,
+                    "submission": submit_result,
+                    "warning": "VASP计算已提交到远程服务器，可能需要数小时完成。使用tool_vasp_check_status检查进度。"
+                }
+            except Exception as e: 
+                return f"出错: {str(e)}"
+
+        @tool
+        def tool_vasp_check_status(job_name: str = "") -> str:
+            """
+            【第一性原理计算专家 (VASP) - 检查状态】
+            用途：检查VASP计算任务的状态。
+            输入：job_name(任务名称，如省略则检查最新提交的任务)
+            """
+            print(f"\n⚛️ [Agent Calls VASP Status]: {job_name if job_name else 'latest'}")
+            try:
+                if not job_name:
+                    # 获取最新任务名称
+                    job_name = self.vasp_expert.current_job_id
+                    if not job_name:
+                        return {"error": "没有正在运行的任务，请提供job_name参数"}
+                return str(self.vasp_expert.check_status(job_name))
+            except Exception as e: return f"出错: {str(e)}"
+
+        @tool
+        def tool_vasp_download_results(job_name: str = "") -> str:
+            """
+            【第一性原理专家 (VASP) - 下载结果】
+            用途：下载已完成的VASP计算结果文件。
+            输入：job_name(任务名称)
+            """
+            print(f"\n⚛️ [Agent Calls VASP Download]: {job_name if job_name else 'latest'}")
+            try:
+                if not job_name:
+                    return {"error": "请提供job_name参数"}
+                return str(self.vasp_expert.download_results(job_name))
+            except Exception as e: return f"出错: {str(e)}"
+
+        @tool
+        def tool_vasp_parse_bandstructure(job_name: str) -> str:
+            """
+            【第一性原理计算专家 (VASP) - 解析能带】
+            用途：解析VASP计算生成的EIGENVAL文件，提取能带结构数据。
+            输入：job_name(任务名称)
+            """
+            print(f"\n⚛️ [Agent Calls VASP Band Analysis]: {job_name}")
+            try:
+                return str(self.vasp_expert.parse_eigenval(job_name))
+            except Exception as e: return f"出错: {str(e)}"
+
         return [
             tool_rag_search, tool_structure_search, 
             tool_generate_by_substitution, tool_generate_cubic_perovskite,
             tool_property_calculation, tool_bandgap_predictor, tool_electronic_band_analyzer, 
             tool_pv_performance_calc, tool_slme_efficiency_calculator, tool_tandem_current_matcher, # SLME 和 叠层
-            tool_goldschmidt_tolerance, tool_commercial_assessment, tool_solvent_recommendation
+            tool_goldschmidt_tolerance, tool_commercial_assessment, tool_solvent_recommendation,
+            tool_vasp_connect, tool_vasp_prepare_and_submit, tool_vasp_check_status,
+            tool_vasp_download_results, tool_vasp_parse_bandstructure  # VASP第一性原理计算
         ]
 
     def _build_agent_executor(self):
