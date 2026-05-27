@@ -1,6 +1,12 @@
 import os
 import sys
 
+# Windows 下强制 UTF-8 编码，避免 emoji 字符导致 GBK 编码错误
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 # 将项目根目录加入系统路径，确保所有 src 下的模块能被正确导入
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 

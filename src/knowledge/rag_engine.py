@@ -6,13 +6,14 @@ import warnings
 # 屏蔽检索库的警告
 warnings.filterwarnings("ignore")
 
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
+# Windows DLL 加载顺序修复：langchain_classic/community 必须在 chroma/huggingface 之前导入
 from langchain_core.documents import Document
 from langchain_classic.retrievers import EnsembleRetriever, ContextualCompressionRetriever
 from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
 
 def load_config():
     """加载全局 YAML 配置文件获取 RAG 参数"""

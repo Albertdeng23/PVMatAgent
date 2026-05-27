@@ -1,7 +1,7 @@
 # 🌞 PVmatAgent: 基于大模型与多专家协同的光伏材料智能发现系统
 **(Photovoltaic Materials Mixture of Experts Agent)**
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-Tool_Calling-green)](https://langchain.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Materials Project](https://img.shields.io/badge/Data-Materials_Project-orange)](https://materialsproject.org/)
@@ -100,30 +100,73 @@ PVmatAgent 是一个专为**光伏材料（尤其是无铅/卤化物钙钛矿）
 
 ### 4.1 环境要求
 *   **OS**: Windows 10/11, Linux, or macOS.
-*   **Python**: >= 3.9 (推荐使用 Anaconda 创建独立虚拟环境)
+*   **Python**: >= 3.11（务必使用 Python 3.11+，因为 `mp-api` 依赖 `typing.NotRequired`）
+*   **Conda**: 推荐使用 Anaconda/Miniconda 创建独立虚拟环境
 *   **Hardware**: 推荐具备 NVIDIA GPU 以加速 CHGNet/MEGNet 的推理，CPU 亦可运行但稍慢。
+*   **磁盘空间**: 约 15GB（包括模型文件、依赖包和缓存）
 
 ### 4.2 安装步骤
+
+#### 方法一：Conda 环境（推荐）
+
 ```bash
 # 1. 克隆代码仓库
 git clone https://github.com/your-username/PVmatAgent.git
 cd PVmatAgent
 
-# 2. 创建虚拟环境
-conda create -n matagent python=3.10
+# 2. 创建并激活 Conda 环境 (Python 3.11+)
+conda create -n matagent python=3.11 -y
 conda activate matagent
 
-# 3. 安装极其严苛的依赖版本 (防止 LangChain / Keras 冲突)
-pip install langchain==0.3.0 langchain-core==0.3.63 langchain-community==0.3.0 langchain-openai==0.2.2 
-pip install httpx==0.27.2 openai==1.52.0
-pip install pymatgen chgnet megnet scipy pyyaml python-dotenv
+# 3. 安装 PyTorch (根据你的 CUDA 版本选择)
+# CUDA 12.1+:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# CUDA 11.8:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# CPU only:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
-# 4. (可选) 安装VASP远程计算依赖
-pip install paramiko ase  # 用于SSH连接远程超算服务器
+# 4. 安装其余依赖
+pip install -r requirements.txt
+
+# 5. (可选) 安装 Playwright 浏览器内核（用于 Markdown 转 PDF）
+playwright install chromium
 ```
 
-### 4.3 全局配置 (`configs/config.yaml`)
-检查 `configs/config.yaml` 文件，确保模型模式设置为 `cloud`。
+#### 方法二：Pip + venv（轻量级）
+
+```bash
+# 1. 创建虚拟环境
+python -m venv matagent_env
+source matagent_env/bin/activate  # Linux/Mac
+# matagent_env\Scripts\activate    # Windows
+
+# 2. 升级 pip
+pip install --upgrade pip
+
+# 3. 安装依赖
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+pip install -r requirements.txt
+```
+
+### 4.3 下载必需模型文件
+
+项目需要两个 HuggingFace 嵌入模型用于 RAG 检索。首次运行时会**自动下载**，也可手动下载以加快首次启动：
+
+```bash
+# 自动下载 (首次运行 main.py 时自动触发)
+python main.py
+
+# 手动下载 (可选，提前下载到 model/ 目录)
+# 从以下地址下载并解压到对应目录:
+# - model/bge-m3/          <- https://huggingface.co/BAAI/bge-m3
+# - model/bge-reranker-v2-m3/ <- https://huggingface.co/BAAI/bge-reranker-v2-m3
+```
+
+### 4.4 全局配置 (`configs/config.yaml`)
+
+检查 `configs/config.yaml` 文件，确保模型模式设置为 `cloud`：
+
 ```yaml
 system:
   cache_dir: "./cache/cif_cache"
@@ -132,40 +175,55 @@ system:
 model:
   type: "cloud"  # 开启云端大模型 Tool Calling
   cloud_api:
-    base_url: "https://api.deepseek.com/v1" # 你的大模型服务商地址
-    model_name: "deepseek-chat"             # 模型名称
+    base_url: "https://api.deepseek.com/v1"  # 你的大模型服务商地址
+    model_name: "deepseek-chat"              # 模型名称
   temperature: 0.01
+
+rag:
+  vector_db_path: "./data/vector_db"
+  embedding_model: "./model/bge-m3"
+  rerank_model: "./model/bge-reranker-v2-m3"
+  recall_k: 30
+  top_k: 8
 ```
 
-### 4.4 环境变量配置 (`.env`)
-在项目根目录下新建一个 `.env` 文件，填入你的 API 密钥：
+### 4.5 环境变量配置 (`.env`)
+
+在项目根目录下新建 `.env` 文件（可参考 `.env.example`），填入你的 API 密钥：
+
 ```env
-# 必须配置：大模型服务商的 API Key (如 OpenAI, DeepSeek, 阿里云等)
+# 必须配置：大模型服务商的 API Key (如 DeepSeek, OpenAI, 阿里云百炼等)
 LLM_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# 必须配置：Materials Project 的 API Key (免费去官网注册获取)
+# 必须配置：Materials Project 的 API Key (免费注册: https://materialsproject.org/api)
 MP_API_KEY=YOUR_MP_API_KEY
 ```
 
-### 4.5 (可选) VASP远程计算配置
-如需使用VASP第一性原理计算功能，需在 `configs/config.yaml` 中配置远程服务器：
+### 4.6 故障排除 (Troubleshooting)
+
+| 问题 | 解决方案 |
+|------|---------|
+| `Segmentation fault` 或 DLL 冲突 | 确保 Python >= 3.11；不要在环境变量中预加载 CUDA DLL |
+| `UnicodeEncodeError: 'gbk'` | 使用 Windows Terminal 而非 CMD；或设置 `PYTHONIOENCODING=utf-8` |
+| `ImportError: NotRequired` | 升级 Python 到 3.11+（`typing.NotRequired` 在 3.10 中不可用）|
+| MEGNet Cython 错误 | 已自动打补丁修复，如果仍有问题请降低 NumPy 到 1.x |
+| 找不到向量数据库 | 正常 — RAG 检索会优雅降级，其他工具仍可正常使用 |
+| bitsandbytes 警告 | 仅在 `local` 模式下需要；`cloud` 模式下可忽略 |
+
+### 4.7 (可选) VASP 远程计算配置
+
+如需使用 VASP 第一性原理计算功能，在 `configs/config.yaml` 中配置远程服务器：
 
 ```yaml
 vasp:
   enabled: true
   default_server:
-    hostname: "your-server.edu.cn"      # 超算服务器地址
-    username: "your_username"           # 用户名
-    key_filename: "~/.ssh/id_rsa"       # SSH私钥路径（推荐）
-    # password: "your_password"         # 或使用密码（不推荐）
-    vasp_command: "vasp_std"            # VASP执行命令
-    work_dir: "~/vasp_calculations"     # 远程工作目录
+    hostname: "your-server.edu.cn"       # 超算服务器地址
+    username: "your_username"            # 用户名
+    key_filename: "~/.ssh/id_rsa"        # SSH 私钥路径（推荐）
+    vasp_command: "vasp_std"             # VASP 执行命令
+    work_dir: "~/vasp_calculations"      # 远程工作目录
 ```
-
-**⚠️ 使用建议**：
-- 推荐使用SSH密钥认证而非密码
-- 确保远程服务器已安装VASP并配置好环境变量
-- 首次使用前建议手动测试SSH连接
 
 ---
 

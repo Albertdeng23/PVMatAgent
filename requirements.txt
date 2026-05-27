@@ -1,57 +1,62 @@
 # ============================================================
 # MatMoE-Agent Python Dependencies
 # ============================================================
-# pip install -r requirements.txt
-#
+# Install: pip install -r requirements.txt
 # Post-install: playwright install chromium
+# ============================================================
+# Python >= 3.11 required (for typing.NotRequired support)
 # ============================================================
 
 # --- Deep Learning / ML Frameworks ---
-torch
-transformers
-bitsandbytes
-tensorflow
+torch>=2.5.0
+transformers>=5.0.0
+bitsandbytes>=0.49.0
+tensorflow>=2.21.0
+tf-keras>=2.21.0
 
 # --- LangChain Ecosystem ---
-langchain
-langchain-classic
-langchain-core
-langgraph
-langchain-huggingface
-langchain-openai
-langchain-chroma
-langchain-community
+langchain>=1.0.0
+langchain-core>=1.0.0
+langchain-community>=0.4.0
+langchain-openai>=1.0.0
+langchain-classic>=1.0.0
+langchain-huggingface>=1.0.0
+langchain-chroma>=1.0.0
 
 # --- Scientific / Numerical Computing ---
-numpy
-scipy
+numpy>=1.26.0
+scipy>=1.10.0
 
 # --- Materials Science ---
-pymatgen
-mp-api
-ase
-chgnet
-megnet
+pymatgen>=2025.0.0
+mp-api>=0.45.0
+ase>=3.20.0
+chgnet>=0.4.0
+megnet>=1.3.0
 
 # --- Embedding / Sentence Transformers ---
-sentence-transformers
-rank_bm25
-
-# --- YAML / Configuration ---
-pyyaml
-
-# --- Environment / Secret Management ---
-python-dotenv
-
-# --- Remote Connectivity (optional, for remote VASP server SSH) ---
-paramiko
-
-# --- Report Generation (PDF) ---
-markdown
-playwright
+sentence-transformers>=5.0.0
+rank_bm25>=0.2.0
 
 # --- Vector Database ---
-chromadb
+chromadb>=1.5.0
 
+# --- YAML / Configuration ---
+pyyaml>=6.0
 
-tf-keras
+# --- Environment / Secret Management ---
+python-dotenv>=1.0.0
+
+# --- Remote Connectivity (VASP SSH) ---
+paramiko>=5.0.0
+
+# --- Report Generation ---
+markdown>=3.4.0
+playwright>=1.50.0
+
+# --- HuggingFace Hub ---
+huggingface_hub>=1.0.0
+
+# --- HTTP / API Clients ---
+httpx>=0.27.0
+openai>=2.0.0

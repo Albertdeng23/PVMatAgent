@@ -11,15 +11,10 @@ if base_dir not in sys.path:
 
 warnings.filterwarnings("ignore")
 
-from langchain.agents import create_agent
-from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-
 # ==============================================================================
-# 导入所有底层专家模块
+# Windows DLL 加载顺序修复：必须先加载科学计算模块 (PyMatGen/TensorFlow)，
+# 再加载 LangChain 模块，避免 DLL 冲突导致段错误。
 # ==============================================================================
-from src.agent.brain import LLMBrain
-from src.agent.prompts import PromptManager
 
 # 1. 知识与数据库专家
 from src.knowledge.rag_engine import KnowledgeExpert
@@ -31,7 +26,7 @@ from src.physics.pv_calculators import PVCalculatorExpert
 from src.physics.electronic_optics import ElectronicOpticsExpert
 from src.physics.thermo_kinetics import ThermoKineticExpert
 
-# 3. 高阶光伏物理专家 (NEW)
+# 3. 高阶光伏物理专家
 from src.physics.advanced_pv_slme import SLMEExpert
 from src.physics.advanced_pv_tandem import TandemPVExpert
 
@@ -44,6 +39,15 @@ from src.discovery.crystal_generator import CrystalGeneratorExpert
 
 # 6. 第一性原理计算专家 (VASP)
 from src.calculations.vasp_tools import VASPToolsExpert
+
+# 7. LangChain 核心 (必须在科学模块之后导入)
+from langchain.agents import create_agent
+from langchain_core.tools import tool
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+
+# 8. Agent 大脑模块 (最后导入，依赖 LangChain)
+from src.agent.brain import LLMBrain
+from src.agent.prompts import PromptManager
 
 
 class MatMoEOrchestrator:

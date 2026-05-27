@@ -25,7 +25,7 @@ try:
 
     # 暴力替换 MEGNet 命名空间中的引用，使其在生成 Graph 时必须经过我们的包装函数
     megnet_data.find_points_in_spheres = patched_find_points
-    print("🛠️ [System Patch] Successfully patched MEGNet Cython buffer dtype mismatch.")
+    print("[System Patch] Successfully patched MEGNet Cython buffer dtype mismatch.")
 
 except ImportError:
     pass # 如果没装 megnet 则跳过
