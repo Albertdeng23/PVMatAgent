@@ -6,10 +6,10 @@ import torch
 from typing import Union
 
 # --- LangChain & Transformers ---
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain.tools import tool
-from langchain.prompts import PromptTemplate
-from langchain.agents.output_parsers import ReActSingleInputOutputParser
+from langchain_classic.agents import AgentExecutor, create_react_agent
+from langchain_classic.tools import tool
+from langchain_classic.prompts import PromptTemplate
+from langchain_classic.agents.output_parsers import ReActSingleInputOutputParser
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_huggingface import HuggingFacePipeline
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig

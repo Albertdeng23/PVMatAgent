@@ -11,8 +11,9 @@ if base_dir not in sys.path:
 
 warnings.filterwarnings("ignore")
 
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain.tools import tool
+from langchain.agents import create_agent
+from langchain_core.tools import tool
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 # ==============================================================================
 # 导入所有底层专家模块
@@ -75,7 +76,7 @@ class MatMoEOrchestrator:
         self.vasp_expert = VASPToolsExpert()  # 新增：VASP第一性原理计算专家
         
         self.tools = self._register_tools()
-        self.agent_executor = self._build_agent_executor()
+        self.agent_graph = self._build_agent_graph()
         print(f"🚀 [Orchestrator] System Ready! {len(self.tools)} Super Tools mounted.")
 
     def _register_tools(self):
@@ -89,25 +90,62 @@ class MatMoEOrchestrator:
 
         @tool
         def tool_structure_search(formula: str) -> str:
-            """【结构下载专家】用途：从 MP 下载晶体结构 (CIF)。如果要计算形成能或预测带隙，必须先调此工具。"""
+            """【结构下载专家】用途：从 MP 下载晶体结构 (CIF)。如果要计算形成能或预测带隙，必须先调此工具。返回 JSON 包含 cif_path、formula、material_id、crystal_system、mp_bandgap_eV、is_stable。"""
             print(f"\n🔍 [Agent Calls MP_DB]: {formula}")
             try:
                 res = self.mp_expert.search_material(formula, limit=1)
-                return res[0]['cif_path'] if res else f"未找到 {formula} 的 CIF 结构。"
+                if not res:
+                    return json.dumps({
+                        "error": f"Materials Project 中未找到与 '{formula}' 匹配的结构。",
+                        "suggestion": "请尝试用更简化的化学式（如去掉有机基团），或调用 tool_rag_search 查阅文献中的结构信息，或用 tool_generate_cubic_perovskite 从零构建。"
+                    }, ensure_ascii=False)
+                r = res[0]
+                return json.dumps({
+                    "cif_path": r["cif_path"],
+                    "formula": r["formula"],
+                    "material_id": r["material_id"],
+                    "crystal_system": r.get("crystal_system", "Unknown"),
+                    "mp_bandgap_eV": r.get("band_gap_eV"),
+                    "mp_is_stable": r.get("is_stable"),
+                }, ensure_ascii=False)
             except Exception as e: return f"出错: {str(e)}"
 
         @tool
         def tool_generate_by_substitution(base_cif_path: str, substitution_mapping: str) -> str:
-            """【元素替换新材料生成器】基于已有 CIF，将某些元素替换为新元素。输入: base_cif_path, substitution_mapping (如 "Pb:Sn, I:Br")。"""
+            """【元素替换新材料生成器】基于已有 CIF，将某些元素全替换为新元素。支持有机基团（MA/FA/EA/GA）。输入: base_cif_path, substitution_mapping (如 "Pb:Sn, I:Br" 或 "I:Br")。若需部分替换（如仅替换50%的I），改用 tool_generate_partial_substitution。"""
             print(f"\n✨ [Agent Calls Substitution]: {os.path.basename(base_cif_path)} | {substitution_mapping}")
             try: return str(self.crystal_expert.generate_by_substitution(base_cif_path, substitution_mapping))
             except Exception as e: return f"出错: {str(e)}"
 
         @tool
         def tool_generate_cubic_perovskite(a_ion: str, b_ion: str, x_ion: str) -> str:
-            """【理想立方钙钛矿生成器】从零开始生成一个理想的 Pm-3m 无机 ABX3 钙钛矿初始晶体结构 (CIF)。"""
+            """【理想立方钙钛矿生成器】从零开始生成一个理想的 Pm-3m ABX3 钙钛矿初始晶体结构 (CIF)。支持有机A位（MA/FA/EA/GA）和无机A/B/X位。生成的CIF可直接用于后续弛豫和带隙计算。"""
             print(f"\n✨ [Agent Calls Prototype Gen]: ABX3 ({a_ion}{b_ion}{x_ion}3)")
             try: return str(self.crystal_expert.generate_cubic_perovskite(a_ion, b_ion, x_ion))
+            except Exception as e: return f"出错: {str(e)}"
+
+        @tool
+        def tool_generate_double_perovskite(a_ion: str, b_ion: str, b_prime_ion: str, x_ion: str) -> str:
+            """【双钙钛矿生成器】从零生成岩盐有序的立方双钙钛矿 A2BB'X6 (Fm-3m)。用于探索无铅双钙钛矿候选材料。输入: A位, B位, B'位, X位 四种离子。"""
+            print(f"\n✨ [Agent Calls Double Pv]: A2BB'X6 ({a_ion}2{b_ion}{b_prime_ion}{x_ion}6)")
+            try: return str(self.crystal_expert.generate_double_perovskite(a_ion, b_ion, b_prime_ion, x_ion))
+            except Exception as e: return f"出错: {str(e)}"
+
+        @tool
+        def tool_generate_partial_substitution(base_cif_path: str, substitution_spec: str) -> str:
+            """【部分替换生成器】基于已有CIF，将一定比例的某元素替换为另一元素，生成中间组分。输入: base_cif_path, substitution_spec (格式: "old_element->new_element, fraction=0.XX"，如 "I->Br, fraction=0.15" 表示15%的I被Br替换)。**重要**：如需生成 CsSn(I0.5Br0.5)3 等中间组分，用此工具而非全替换。"""
+            print(f"\n✨ [Agent Calls Partial Sub]: {os.path.basename(base_cif_path)} | {substitution_spec}")
+            try: return str(self.crystal_expert.generate_partial_substitution(base_cif_path, substitution_spec))
+            except Exception as e: return f"出错: {str(e)}"
+
+        @tool
+        def tool_generate_from_template(template: str, ions_json: str) -> str:
+            """【模板化结构生成器】根据结构模板和离子JSON列表生成CIF。用于当MP数据库中找不到某材料时从零构建。template可选: 'cubic'(ABX3), 'double_perovskite'(A2BB'X6), 'tetragonal'(ABX3四方相)。ions_json格式: '["A离子","B离子","X离子"]' 或双钙钛矿的 '["A","B","B'","X"]'。"""
+            print(f"\n✨ [Agent Calls Template Gen]: {template} | {ions_json}")
+            try:
+                import json as _json
+                ions = _json.loads(ions_json)
+                return str(self.crystal_expert.generate_from_template(template, ions))
             except Exception as e: return f"出错: {str(e)}"
 
         @tool
@@ -302,27 +340,41 @@ class MatMoEOrchestrator:
             except Exception as e: return f"出错: {str(e)}"
 
         return [
-            tool_rag_search, tool_structure_search, 
+            tool_rag_search, tool_structure_search,
             tool_generate_by_substitution, tool_generate_cubic_perovskite,
-            tool_property_calculation, tool_bandgap_predictor, tool_electronic_band_analyzer, 
-            tool_pv_performance_calc, tool_slme_efficiency_calculator, tool_tandem_current_matcher, # SLME 和 叠层
+            tool_generate_double_perovskite, tool_generate_partial_substitution,  # 新增：双钙钛矿 + 部分替换
+            tool_generate_from_template,                                           # 新增：模板化结构生成
+            tool_property_calculation, tool_bandgap_predictor, tool_electronic_band_analyzer,
+            tool_pv_performance_calc, tool_slme_efficiency_calculator, tool_tandem_current_matcher,
             tool_goldschmidt_tolerance, tool_commercial_assessment, tool_solvent_recommendation,
             tool_vasp_connect, tool_vasp_prepare_and_submit, tool_vasp_check_status,
-            tool_vasp_download_results, tool_vasp_parse_bandstructure  # VASP第一性原理计算
+            tool_vasp_download_results, tool_vasp_parse_bandstructure
         ]
 
-    def _build_agent_executor(self):
-        prompt = PromptManager.get_tool_calling_prompt()
-        agent = create_tool_calling_agent(self.llm, self.tools, prompt)
-        
-        return AgentExecutor(
-            agent=agent, 
-            tools=self.tools, 
-            verbose=True, 
-            handle_parsing_errors=True,
-            max_iterations=25,
-            return_intermediate_steps=True
+    def _build_agent_graph(self):
+        system_prompt = PromptManager.get_tool_calling_prompt()
+        return create_agent(
+            model=self.llm,
+            tools=self.tools,
+            system_prompt=system_prompt,
+            debug=True
         )
+
+    def _extract_steps(self, messages):
+        steps = []
+        for i, msg in enumerate(messages):
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    tool_name = tc.get("name", "unknown")
+                    tool_args = tc.get("args", {})
+                    observation = ""
+                    for j in range(i + 1, len(messages)):
+                        mj = messages[j]
+                        if isinstance(mj, ToolMessage) and mj.tool_call_id == tc.get("id"):
+                            observation = mj.content
+                            break
+                    steps.append((tool_name, tool_args, observation))
+        return steps
 
     def _save_to_markdown(self, user_query: str, final_output: str, steps: list):
         """将最终报告和思考调用轨迹固化为 Markdown 文件。"""
@@ -344,13 +396,13 @@ class MatMoEOrchestrator:
             if not steps:
                 f.write("*本次响应未调用任何外部工具。*\n")
             else:
-                for i, (action, observation) in enumerate(steps, 1):
-                    f.write(f"### 步骤 {i}: `{action.tool}`\n")
+                for i, (tool_name, tool_args, observation) in enumerate(steps, 1):
+                    f.write(f"### 步骤 {i}: `{tool_name}`\n")
                     f.write(f"**输入参数 (Action Input)**:\n```json\n")
                     try:
-                        input_str = json.dumps(action.tool_input, indent=2, ensure_ascii=False)
+                        input_str = json.dumps(tool_args, indent=2, ensure_ascii=False)
                     except:
-                        input_str = str(action.tool_input)
+                        input_str = str(tool_args)
                     f.write(f"{input_str}\n```\n\n")
                     f.write(f"**工具返回结果 (Observation)**:\n```text\n")
                     f.write(f"{observation}\n```\n\n")
@@ -360,13 +412,27 @@ class MatMoEOrchestrator:
     def chat(self, user_query: str):
         try:
             print(f"\n{'='*50}\n👤 User: {user_query}\n{'='*50}")
-            response = self.agent_executor.invoke({"input": user_query})
-            
-            final_output = response.get("output", "")
-            intermediate_steps = response.get("intermediate_steps", [])
-            
+            config = {"recursion_limit": 50}
+            response = self.agent_graph.invoke(
+                {"messages": [HumanMessage(content=user_query)]},
+                config=config
+            )
+
+            messages = response.get("messages", [])
+
+            final_output = ""
+            for msg in reversed(messages):
+                if isinstance(msg, AIMessage) and not msg.tool_calls:
+                    final_output = msg.content
+                    break
+
+            if not final_output and messages:
+                final_output = messages[-1].content if hasattr(messages[-1], 'content') else str(messages[-1])
+
+            intermediate_steps = self._extract_steps(messages)
+
             self._save_to_markdown(user_query, final_output, intermediate_steps)
-            
+
             return final_output
         except Exception as e:
             import traceback

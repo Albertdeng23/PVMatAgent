@@ -20,7 +20,7 @@ model:
   # 以下以 DeepSeek 或 阿里云百炼(Qwen) 为例，兼容 OpenAI 格式
   cloud_api:
     base_url: "https://api.deepseek.com/v1"  # API 代理地址
-    model_name: "deepseek-chat"              # 模型名称 (如 qwen-plus, gpt-4o)
+    model_name: "deepseek-v4-pro"              # 模型名称 (如 qwen-plus, gpt-4o)
     
   # 通用生成参数
   temperature: 0.01

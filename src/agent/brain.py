@@ -11,8 +11,63 @@ from langchain_huggingface import HuggingFacePipeline
 
 # 云端模型依赖
 from langchain_openai import ChatOpenAI
+from langchain_core.messages import AIMessage
 
 warnings.filterwarnings("ignore")
+
+# ==============================================================================
+# DeepSeek 思考模式补丁：修复 reasoning_content 丢失导致 400 错误
+# 策略：patch ChatOpenAI 类的两个关键方法——
+#   1. _create_chat_result → 从 API 响应中捕获 reasoning_content
+#   2. _get_request_payload → 在请求消息体中回注 reasoning_content
+# ==============================================================================
+_REASONING_PATCH_APPLIED = False
+
+def _apply_deepseek_reasoning_patch():
+    """双向 patch ChatOpenAI，确保 reasoning_content 在响应和请求间完整传递。"""
+    global _REASONING_PATCH_APPLIED
+    if _REASONING_PATCH_APPLIED:
+        return
+    _REASONING_PATCH_APPLIED = True
+
+    # ---- 响应侧：从 DeepSeek API 响应中提取 reasoning_content ----
+    _orig_create_chat_result = ChatOpenAI._create_chat_result
+
+    def _capture_reasoning_content(self, response, *args, **kwargs):
+        result = _orig_create_chat_result(self, response, *args, **kwargs)
+        try:
+            choice = response.choices[0]
+            reasoning = getattr(choice.message, "reasoning_content", None)
+            if reasoning:
+                for gen in result.generations:
+                    if hasattr(gen, "message") and gen.message:
+                        gen.message.additional_kwargs["reasoning_content"] = reasoning
+        except Exception:
+            pass
+        return result
+
+    ChatOpenAI._create_chat_result = _capture_reasoning_content
+
+    # ---- 请求侧：将 reasoning_content 回注到每条 assistant 消息的 JSON 中 ----
+    _orig_get_request_payload = ChatOpenAI._get_request_payload
+
+    def _inject_reasoning_content(self, input_, **kwargs):
+        payload = _orig_get_request_payload(self, input_, **kwargs)
+        try:
+            msg_list = payload.get("messages", [])
+            for i, msg_dict in enumerate(msg_list):
+                if msg_dict.get("role") == "assistant" and i < len(input_):
+                    original_msg = input_[i]
+                    if isinstance(original_msg, AIMessage):
+                        reasoning = original_msg.additional_kwargs.get("reasoning_content")
+                        if reasoning:
+                            msg_dict["reasoning_content"] = reasoning
+        except Exception:
+            pass
+        return payload
+
+    ChatOpenAI._get_request_payload = _inject_reasoning_content
+    print("   -> [Patch] DeepSeek reasoning_content bidirectional patch applied.")
 
 def load_config():
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -93,7 +148,10 @@ class LLMBrain:
             raise ValueError("❌ 采用云端模型时，必须在根目录 .env 文件中配置 LLM_API_KEY=xxx")
 
         print(f"   -> Loading CLOUD model: {cloud_cfg['model_name']} via {cloud_cfg['base_url']}")
-        
+
+        # 为 DeepSeek 等思考模式补丁：确保 reasoning_content 正确回传
+        _apply_deepseek_reasoning_patch()
+
         # 初始化 ChatOpenAI
         chat_model = ChatOpenAI(
             openai_api_key=api_key,

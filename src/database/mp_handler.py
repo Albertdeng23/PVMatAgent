@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 warnings.filterwarnings("ignore", category=UserWarning, module="mp_api")
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-from pymatgen.core import Structure
+from pymatgen.core import Structure, Composition
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from mp_api.client import MPRester
 
@@ -100,6 +100,20 @@ class MPDatabaseExpert:
 
             # 智能排序：优先返回稳定材料，其次能量最低 (energy_above_hull 越小越好)
             sorted_docs = sorted(docs, key=lambda x: (not x.is_stable, x.energy_above_hull))
+
+            # 成分验证：剔除与查询化学式元素集合不匹配的结果（防止 MP API 返回无关材料）
+            try:
+                query_comp = Composition(query.replace(" ", ""))
+                query_elements = {str(e) for e in query_comp.elements}
+                filtered_docs = [
+                    d for d in sorted_docs
+                    if query_elements.issubset({str(e) for e in d.structure.composition.elements})
+                ]
+                if filtered_docs:
+                    sorted_docs = filtered_docs
+            except Exception:
+                pass  # 查询本身无法解析时跳过过滤
+
             top_docs = sorted_docs[:limit]
 
             results = []

@@ -1,7 +1,5 @@
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
 # ==============================================================================
-# Tool Calling 架构核心模板 (MatMoE-Agent SOP Prompt)
+# MatMoE-Agent System Prompt (Tool Calling SOP)
 # ==============================================================================
 
 TOOL_CALLING_SYSTEM_TEMPLATE = """你是一个顶尖的光伏材料科学家和数据分析专家，名为 MatMoE-Agent。
@@ -74,23 +72,10 @@ class PromptManager:
     """
     
     @staticmethod
-    def get_tool_calling_prompt() -> ChatPromptTemplate:
-        """
-        获取适用于云端大模型原生 Tool Calling 架构的 ChatPromptTemplate。
-        包含系统提示词、用户输入，以及用于存放工具调用历史的 agent_scratchpad。
-        """
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", TOOL_CALLING_SYSTEM_TEMPLATE),
-            # 如果未来需要多轮对话记忆，可以在这里插入 MessagesPlaceholder(variable_name="chat_history")
-            ("human", "{input}"),
-            # 这个占位符是 LangChain Tool Calling Agent 必须的，用于存放模型调用工具的中间过程消息
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-
-        ])
-        return prompt
+    def get_tool_calling_prompt() -> str:
+        return TOOL_CALLING_SYSTEM_TEMPLATE
 
 if __name__ == "__main__":
-    # 测试 Prompt 是否能正确实例化
     prompt = PromptManager.get_tool_calling_prompt()
-    print("✅ [Prompts] Tool Calling Template loaded successfully.")
-    print(f"Required variables: {prompt.input_variables}")
+    print("✅ [Prompts] System prompt loaded successfully.")
+    print(f"Prompt length: {len(prompt)} chars")

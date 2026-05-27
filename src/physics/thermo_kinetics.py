@@ -1,4 +1,5 @@
 import os
+import re
 import math
 import yaml
 from typing import Dict, Union, Tuple
@@ -33,8 +34,10 @@ class ThermoKineticExpert:
         A位 (CN=12), B位 (CN=6), X位 (CN=6)
         返回: (半径值, 数据来源标注)
         """
-        ion_str_upper = ion_str.upper()
-        
+        # 预处理：移除 LLM 可能传入的电荷后缀，如 Cs+ -> Cs, Sn2+ -> Sn, I- -> I
+        cleaned = re.sub(r'[0-9]*[+\-−]$', '', ion_str.strip())
+        ion_str_upper = cleaned.upper()
+
         # 1. 优先检查是否为有机大阳离子 (仅允许出现在 A 位)
         if ion_str_upper in self.organic_radii:
             if site_type != 'A':
@@ -43,12 +46,12 @@ class ThermoKineticExpert:
             cit = self.organic_radii[ion_str_upper]['citation']
             return r, f"Organic Effective Radius ({cit})"
 
-        # 2. 调用 Pymatgen 处理无机元素
+        # 2. 调用 Pymatgen 处理无机元素（使用清洗后的名称）
         try:
             # 标准化大小写 (如 cs -> Cs, PB -> Pb)
-            el = Element(ion_str.capitalize())
+            el = Element(cleaned.capitalize())
         except ValueError:
-            raise ValueError(f"无法识别的元素或离子缩写: {ion_str}")
+            raise ValueError(f"无法识别的元素或离子缩写: {ion_str}（已尝试清洗为: {cleaned}）")
 
         # 3. 根据格位设定典型氧化态和配位数 (以卤化物钙钛矿 ABX3 为默认场景)
         try:
@@ -78,6 +81,11 @@ class ThermoKineticExpert:
         """
         严谨版：计算 ABX3 卤化物钙钛矿的容差因子。
         """
+        # 预处理：去除 LLM 可能传入的电荷后缀
+        a_clean = re.sub(r'[0-9]*[+\-−]$', '', a_ion.strip()).capitalize()
+        b_clean = re.sub(r'[0-9]*[+\-−]$', '', b_ion.strip()).capitalize()
+        x_clean = re.sub(r'[0-9]*[+\-−]$', '', x_ion.strip()).capitalize()
+
         try:
             r_a, src_a = self._get_ionic_radius(a_ion, 'A')
             r_b, src_b = self._get_ionic_radius(b_ion, 'B')
@@ -96,16 +104,16 @@ class ThermoKineticExpert:
         if mu < 0.44: assessment += " 且 B 位离子过小，八面体骨架无法维持。"
 
         return {
-            "target_system": f"{a_ion.capitalize()}{b_ion.capitalize()}{x_ion.capitalize()}3",
+            "target_system": f"{a_clean}{b_clean}{x_clean}3",
             "calculated_indices": {
                 "tolerance_factor_t": round(t, 4),
                 "octahedral_factor_mu": round(mu, 4),
                 "is_potentially_stable_3D": is_3d_perovskite
             },
             "radii_data_used_Angstrom": {
-                "A_site": {"ion": a_ion, "radius": r_a, "source": src_a},
-                "B_site": {"ion": b_ion, "radius": r_b, "source": src_b},
-                "X_site": {"ion": x_ion, "radius": r_x, "source": src_x}
+                "A_site": {"ion": a_clean, "radius": r_a, "source": src_a},
+                "B_site": {"ion": b_clean, "radius": r_b, "source": src_b},
+                "X_site": {"ion": x_clean, "radius": r_x, "source": src_x}
             },
             "structural_assessment": assessment
         }

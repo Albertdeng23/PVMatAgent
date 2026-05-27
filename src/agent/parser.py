@@ -1,6 +1,6 @@
 import re
 from typing import Union
-from langchain.agents.output_parsers import ReActSingleInputOutputParser
+from langchain_classic.agents.output_parsers import ReActSingleInputOutputParser
 from langchain_core.agents import AgentAction, AgentFinish
 
 class MatMoEOutputParser(ReActSingleInputOutputParser):

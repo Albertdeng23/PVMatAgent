@@ -9,8 +9,8 @@ warnings.filterwarnings("ignore")
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain.retrievers import EnsembleRetriever, ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import CrossEncoderReranker
+from langchain_classic.retrievers import EnsembleRetriever, ContextualCompressionRetriever
+from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
@@ -64,17 +64,36 @@ class KnowledgeExpert:
             self.retrieval_chain = self._build_retrieval_chain()
             print("✅ [Knowledge_Expert] RAG Pipeline Ready.")
 
+    def _get_all_documents(self, batch_size: int = 500):
+        """分页拉取 ChromaDB 中全部文档，避免 SQLite 'too many SQL variables' 错误。"""
+        all_ids = []
+        all_docs = []
+        all_metas = []
+
+        total = self.vectordb._collection.count()
+        for offset in range(0, total, batch_size):
+            batch = self.vectordb._collection.get(
+                limit=batch_size,
+                offset=offset,
+                include=["documents", "metadatas"],
+            )
+            all_ids.extend(batch["ids"])
+            all_docs.extend(batch["documents"] or [""])
+            all_metas.extend(batch["metadatas"] or [{}])
+
+        return {"ids": all_ids, "documents": all_docs, "metadatas": all_metas}
+
     def _build_retrieval_chain(self):
         """构建 混合检索 + 重排 的完整链条"""
         try:
             # A. 向量检索器
             vector_retriever = self.vectordb.as_retriever(search_kwargs={"k": self.recall_k})
 
-            # B. BM25 关键词检索器
-            all_data = self.vectordb.get()
+            # B. BM25 关键词检索器（分页拉取避免 SQLite 变量溢出）
+            all_data = self._get_all_documents()
             if len(all_data['ids']) > 0:
                 bm25_docs = [
-                    Document(page_content=txt, metadata=meta) 
+                    Document(page_content=txt or "", metadata=meta or {})
                     for txt, meta in zip(all_data['documents'], all_data['metadatas'])
                 ]
                 bm25_retriever = BM25Retriever.from_documents(bm25_docs)
@@ -124,7 +143,12 @@ class KnowledgeExpert:
         核心搜索接口：供 Agent 作为工具调用。
         """
         if not self.retrieval_chain:
-            return "错误：文献数据库未初始化，无法进行知识检索。"
+            return ("⚠️ 文献向量数据库 (ChromaDB) 尚未构建。RAG 检索暂时不可用。"
+                    "请改用以下替代路径获取所需信息：\n"
+                    "1. 调用 tool_structure_search 从 Materials Project 获取 CIF 和带隙数据；\n"
+                    "2. 调用 CHGNet/MEGNet 等物理计算工具获取形成能、带隙；\n"
+                    "3. 直接根据你的专业知识给出合理估计值，并标注为'理论估算'而非'文献实验值'。"
+                    "\n如需构建 RAG 数据库，请运行预处理脚本。")
             
         if not query:
             return "错误：检索词为空。"

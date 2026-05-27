@@ -1,2 +1,57 @@
-# requirements placeholder
-# 在此添加依赖，例如 transformers, torch, ase, pymatgen, chromadb
+# ============================================================
+# MatMoE-Agent Python Dependencies
+# ============================================================
+# pip install -r requirements.txt
+#
+# Post-install: playwright install chromium
+# ============================================================
+
+# --- Deep Learning / ML Frameworks ---
+torch
+transformers
+bitsandbytes
+tensorflow
+
+# --- LangChain Ecosystem ---
+langchain
+langchain-classic
+langchain-core
+langgraph
+langchain-huggingface
+langchain-openai
+langchain-chroma
+langchain-community
+
+# --- Scientific / Numerical Computing ---
+numpy
+scipy
+
+# --- Materials Science ---
+pymatgen
+mp-api
+ase
+chgnet
+megnet
+
+# --- Embedding / Sentence Transformers ---
+sentence-transformers
+rank_bm25
+
+# --- YAML / Configuration ---
+pyyaml
+
+# --- Environment / Secret Management ---
+python-dotenv
+
+# --- Remote Connectivity (optional, for remote VASP server SSH) ---
+paramiko
+
+# --- Report Generation (PDF) ---
+markdown
+playwright
+
+# --- Vector Database ---
+chromadb
+
+
+tf-keras

@@ -313,3 +313,6 @@ MatMoE_Agent/
 *   [LangChain](https://www.langchain.com/): Framework for building LLM applications.
 
 **如果您在研究中使用了本系统的架构或理念，欢迎引用。**
+
+## 11.备注
+使用该项目应该将bge-m3（https://huggingface.co/BAAI/bge-m3）模型和bge-reranker-v2-m3（https://huggingface.co/BAAI/bge-reranker-v2-m3）放置在model文件夹下的对应文件夹中
